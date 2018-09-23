@@ -108,7 +108,7 @@ class WpmDataset(utils.Dataset):
             self.auto_download(dataset_dir, subset)
 
         coco = COCO("{}/annotations/instances_{}.json".format(dataset_dir, subset))
-        image_dir = "{}/{}".format(dataset_dir, subset, year)
+        image_dir = "{}/{}".format(dataset_dir, subset)
 
         # Load all classes or a subset?
         if not class_ids:
@@ -463,7 +463,7 @@ if __name__ == '__main__':
 
     # Load weights
     print("Loading weights ", model_path)
-    model.load_weights(model_path, by_name=True)
+    model.load_weights(model_path, by_name=True, exclude=['mrcnn_bbox_fc','mrcnn_class_logits', 'mrcnn_mask'])
 
     # Train or evaluate
     if args.command == "train":
@@ -475,8 +475,8 @@ if __name__ == '__main__':
 
         # Validation dataset
         dataset_val = WpmDataset()
-        val_type = "val" if args.year in '2017' else "minival"
-        dataset_val.load_wpm(args.dataset, val_type, year=args.year, auto_download=args.download)
+        #val_type = "val" if args.year in '2017' else "minival"
+        dataset_val.load_wpm(args.dataset, "val", auto_download=args.download)
         dataset_val.prepare()
 
         # Image Augmentation
