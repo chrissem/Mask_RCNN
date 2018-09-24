@@ -31,7 +31,8 @@ import os
 import sys
 import time
 import numpy as np
-import imgaug  # https://github.com/aleju/imgaug (pip3 install imgaug)
+from imgaug import augmenters as iaa
+
 
 # Download and install the Python COCO tools from https://github.com/waleedka/coco
 # That's a fork from the original https://github.com/pdollar/coco with a bug
@@ -61,7 +62,7 @@ COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
-DEFAULT_DATASET_YEAR = "2014"
+# DEFAULT_DATASET_YEAR = "2014"
 
 ############################################################
 #  Configurations
@@ -78,13 +79,43 @@ class WpmConfig(Config):
 
     # We use a GPU with 12GB memory, which can fit two images.
     # Adjust down if you use a smaller GPU.
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 4
 
     # Uncomment to train on 8 GPUs (default is 1)
-    # GPU_COUNT = 8
+    GPU_COUNT = 1
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 2  # Background + Cell + Nucleus
+
+    STEPS_PER_EPOCH = 239 // IMAGES_PER_GPU
+    VALIDATION_STEPS = 51 // IMAGES_PER_GPU
+
+    BACKBONE = "resnet101"
+    USE_MINI_MASK = True
+
+    IMAGE_RESIZE_MODE = "crop"
+    IMAGE_MIN_DIM = 512
+    IMAGE_MAX_DIM = 512
+
+    MEAN_PIXEL = np.array([44.82, 44.82, 44.82])
+
+    RPN_ANCHOR_SCALES = (8, 16, 32, 64, 128)
+
+    POST_NMS_ROIS_TRAINING = 1000
+    POST_NMS_ROIS_INFERENCE = 2000
+
+    RPN_NMS_THRESHOLD = 0.9
+
+    TRAIN_ROIS_PER_IMAGE = 128
+
+    # Maximum number of ground truth instances to use in one image
+    MAX_GT_INSTANCES = 64
+
+    # Max number of final detections per image
+    DETECTION_MAX_INSTANCES = 64
+
+
+
 
 
 ############################################################
@@ -391,6 +422,47 @@ def evaluate_coco(model, dataset, coco, eval_type="bbox", limit=0, image_ids=Non
 ############################################################
 #  Training
 ############################################################
+def train(model, dataset_dir, subset):
+    """Train the model."""
+    # Training dataset.
+    dataset_train = NucleusDataset()
+    dataset_train.load_nucleus(dataset_dir, subset)
+    dataset_train.prepare()
+
+    # Validation dataset
+    dataset_val = NucleusDataset()
+    dataset_val.load_nucleus(dataset_dir, "val")
+    dataset_val.prepare()
+
+    # Image augmentation
+    # http://imgaug.readthedocs.io/en/latest/source/augmenters.html
+    augmentation = iaa.SomeOf((0, 2), [
+        iaa.Fliplr(0.5),
+        iaa.Flipud(0.5),
+        iaa.OneOf([iaa.Affine(rotate=90),
+                   iaa.Affine(rotate=180),
+                   iaa.Affine(rotate=270)]),
+        iaa.Multiply((0.8, 1.5)),
+        iaa.GaussianBlur(sigma=(0.0, 5.0))
+    ])
+
+    # *** This training schedule is an example. Update to your needs ***
+
+    # If starting from imagenet, train heads only for a bit
+    # since they have random weights
+    print("Train network heads")
+    model.train(dataset_train, dataset_val,
+                learning_rate=config.LEARNING_RATE,
+                epochs=20,
+                augmentation=augmentation,
+                layers='heads')
+
+    print("Train all layers")
+    model.train(dataset_train, dataset_val,
+                learning_rate=config.LEARNING_RATE,
+                epochs=40,
+                augmentation=augmentation,
+                layers='all')
 
 
 if __name__ == '__main__':
@@ -435,7 +507,7 @@ if __name__ == '__main__':
         class InferenceConfig(WpmConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
-            GPU_COUNT = 0
+            GPU_COUNT = 1
             IMAGES_PER_GPU = 1
             DETECTION_MIN_CONFIDENCE = 0
         config = InferenceConfig()
@@ -463,7 +535,10 @@ if __name__ == '__main__':
 
     # Load weights
     print("Loading weights ", model_path)
-    model.load_weights(model_path, by_name=True, exclude=['mrcnn_bbox_fc','mrcnn_class_logits', 'mrcnn_mask'])
+    # model.load_weights(model_path, by_name=True, exclude=['mrcnn_bbox_fc','mrcnn_class_logits', 'mrcnn_mask'])
+    model.load_weights(model_path, by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc",
+                                "mrcnn_bbox", "mrcnn_mask"])
+
 
     # Train or evaluate
     if args.command == "train":
@@ -479,43 +554,76 @@ if __name__ == '__main__':
         dataset_val.load_wpm(args.dataset, "val", auto_download=args.download)
         dataset_val.prepare()
 
-        # Image Augmentation
-        # Right/Left flip 50% of the time
-        augmentation = imgaug.augmenters.Fliplr(0.5)
+        # Image augmentation
+        # http://imgaug.readthedocs.io/en/latest/source/augmenters.html
+        augmentation = iaa.SomeOf((0, 2), [
+            iaa.Fliplr(0.5),
+            iaa.Flipud(0.5),
+            iaa.OneOf([iaa.Affine(rotate=90),
+                       iaa.Affine(rotate=180),
+                       iaa.Affine(rotate=270)])
+            # iaa.Multiply((0.8, 1.5)),
+            # iaa.GaussianBlur(sigma=(0.0, 5.0))
+        ])
 
         # *** This training schedule is an example. Update to your needs ***
 
-        # Training - Stage 1
-        print("Training network heads")
+        # If starting from imagenet, train heads only for a bit
+        # since they have random weights
+        print("Train network heads")
         model.train(dataset_train, dataset_val,
                     learning_rate=config.LEARNING_RATE,
-                    epochs=40,
-                    layers='heads',
-                    augmentation=augmentation)
+                    epochs=20,
+                    augmentation=augmentation,
+                    layers='heads')
 
-        # Training - Stage 2
-        # Finetune layers from ResNet stage 4 and up
-        print("Fine tune Resnet stage 4 and up")
+        print("Train all layers")
         model.train(dataset_train, dataset_val,
                     learning_rate=config.LEARNING_RATE,
-                    epochs=120,
-                    layers='4+',
-                    augmentation=augmentation)
+                    epochs=80,
+                    augmentation=augmentation,
+                    layers='all')
 
-        # Training - Stage 3
-        # Fine tune all layers
-        print("Fine tune all layers")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE / 10,
-                    epochs=160,
-                    layers='all',
-                    augmentation=augmentation)
+        # # Image Augmentation
+        # # Right/Left flip 50% of the time
+        # augmentation = imgaug.augmenters.Fliplr(0.5)
+
+        # # *** This training schedule is an example. Update to your needs ***
+
+        # # Training - Stage 1
+        # print("Training network heads")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE,
+        #             epochs=5,
+        #             # epochs=40,
+        #             layers='heads',
+        #             augmentation=augmentation)
+
+        # # Training - Stage 2
+        # # Finetune layers from ResNet stage 4 and up
+        # print("Fine tune Resnet stage 4 and up")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE,
+        #             # epochs=120,
+        #             epochs=15,
+        #             layers='4+',
+        #             augmentation=augmentation)
+
+        # # Training - Stage 3
+        # # Fine tune all layers
+        # print("Fine tune all layers")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE / 10,
+        #             # epochs=160,
+        #             epochs=20,
+        #             layers='all',
+        #             augmentation=augmentation)
 
     elif args.command == "evaluate":
         # Validation dataset
         dataset_val = WpmDataset()
-        val_type = "val" if args.year in '2017' else "minival"
-        coco = dataset_val.load_wpm(args.dataset, val_type, year=args.year, return_coco=True, auto_download=args.download)
+        # val_type = "val" if args.year in '2017' else "minival"
+        coco = dataset_val.load_wpm(args.dataset, val_type, return_coco=True, auto_download=args.download)
         dataset_val.prepare()
         print("Running COCO evaluation on {} images.".format(args.limit))
         evaluate_coco(model, dataset_val, coco, "bbox", limit=int(args.limit))
