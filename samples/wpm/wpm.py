@@ -570,19 +570,19 @@ if __name__ == '__main__':
 
         # If starting from imagenet, train heads only for a bit
         # since they have random weights
-        # print("Train network heads")
-        # model.train(dataset_train, dataset_val,
-        #             learning_rate=config.LEARNING_RATE,
-        #             epochs=20,
-        #             augmentation=augmentation,
-        #             layers='heads')
+        print("Train network heads")
+        model.train(dataset_train, dataset_val,
+                    learning_rate=config.LEARNING_RATE,
+                    epochs=20,
+                    augmentation=augmentation,
+                    layers='heads')
 
-        # print("Train all layers")
-        # model.train(dataset_train, dataset_val,
-        #             learning_rate=config.LEARNING_RATE,
-        #             epochs=80,
-        #             augmentation=augmentation,
-        #             layers='all')
+        print("Train all layers")
+        model.train(dataset_train, dataset_val,
+                    learning_rate=config.LEARNING_RATE,
+                    epochs=80,
+                    augmentation=augmentation,
+                    layers='all')
 
         # # Image Augmentation
         # # Right/Left flip 50% of the time
@@ -611,13 +611,13 @@ if __name__ == '__main__':
 
         # # Training - Stage 3
         # # Fine tune all layers
-        print("Fine tune all layers")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE / 10,
-                    # epochs=160,
-                    epochs=80,
-                    layers='all',
-                    augmentation=augmentation)
+        # print("Fine tune all layers")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE / 10,
+        #             # epochs=160,
+        #             epochs=80,
+        #             layers='all',
+        #             augmentation=augmentation)
 
     elif args.command == "evaluate":
         # Validation dataset
