@@ -79,7 +79,7 @@ class WpmConfig(Config):
 
     # We use a GPU with 12GB memory, which can fit two images.
     # Adjust down if you use a smaller GPU.
-    IMAGES_PER_GPU = 4
+    IMAGES_PER_GPU = 3
 
     # Uncomment to train on 8 GPUs (default is 1)
     GPU_COUNT = 1
@@ -138,7 +138,7 @@ class WpmDataset(utils.Dataset):
         if auto_download is True:
             self.auto_download(dataset_dir, subset)
 
-        coco = COCO("{}/annotations/instances_{}.json".format(dataset_dir, subset))
+        coco = COCO("{}/{}.json".format(dataset_dir, subset))
         image_dir = "{}/{}".format(dataset_dir, subset)
 
         # Load all classes or a subset?
@@ -508,7 +508,7 @@ if __name__ == '__main__':
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
-            IMAGES_PER_GPU = 1
+            IMAGES_PER_GPU = 3
             DETECTION_MIN_CONFIDENCE = 0
         config = InferenceConfig()
     config.display()
@@ -570,54 +570,54 @@ if __name__ == '__main__':
 
         # If starting from imagenet, train heads only for a bit
         # since they have random weights
-        print("Train network heads")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE,
-                    epochs=20,
-                    augmentation=augmentation,
-                    layers='heads')
+        # print("Train network heads")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE,
+        #             epochs=20,
+        #             augmentation=augmentation,
+        #             layers='heads')
 
-        print("Train all layers")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE,
-                    epochs=80,
-                    augmentation=augmentation,
-                    layers='all')
+        # print("Train all layers")
+        # model.train(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE,
+        #             epochs=80,
+        #             augmentation=augmentation,
+        #             layers='all')
 
         # # Image Augmentation
         # # Right/Left flip 50% of the time
         # augmentation = imgaug.augmenters.Fliplr(0.5)
 
-        # # *** This training schedule is an example. Update to your needs ***
+        # *** This training schedule is an example. Update to your needs ***
 
-        # # Training - Stage 1
-        # print("Training network heads")
-        # model.train(dataset_train, dataset_val,
-        #             learning_rate=config.LEARNING_RATE,
-        #             epochs=5,
-        #             # epochs=40,
-        #             layers='heads',
-        #             augmentation=augmentation)
+        # Training - Stage 1
+        print("Training network heads")
+        model.train(dataset_train, dataset_val,
+                    learning_rate=config.LEARNING_RATE,
+                    epochs=10,
+                    # epochs=40,
+                    layers='heads',
+                    augmentation=augmentation)
 
-        # # Training - Stage 2
-        # # Finetune layers from ResNet stage 4 and up
-        # print("Fine tune Resnet stage 4 and up")
-        # model.train(dataset_train, dataset_val,
-        #             learning_rate=config.LEARNING_RATE,
-        #             # epochs=120,
-        #             epochs=15,
-        #             layers='4+',
-        #             augmentation=augmentation)
+        # Training - Stage 2
+        # Finetune layers from ResNet stage 4 and up
+        print("Fine tune Resnet stage 4 and up")
+        model.train(dataset_train, dataset_val,
+                    learning_rate=config.LEARNING_RATE,
+                    # epochs=120,
+                    epochs=30,
+                    layers='4+',
+                    augmentation=augmentation)
 
-        # # Training - Stage 3
-        # # Fine tune all layers
-        # print("Fine tune all layers")
-        # model.train(dataset_train, dataset_val,
-        #             learning_rate=config.LEARNING_RATE / 10,
-        #             # epochs=160,
-        #             epochs=20,
-        #             layers='all',
-        #             augmentation=augmentation)
+        # Training - Stage 3
+        # Fine tune all layers
+        print("Fine tune all layers")
+        model.train(dataset_train, dataset_val,
+                    learning_rate=config.LEARNING_RATE / 10,
+                    # epochs=160,
+                    epochs=40,
+                    layers='all',
+                    augmentation=augmentation)
 
     elif args.command == "evaluate":
         # Validation dataset
