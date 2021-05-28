@@ -17,6 +17,15 @@ from collections import OrderedDict
 import multiprocessing
 import numpy as np
 import tensorflow as tf
+
+# import tensorflow.compat.v1 as tf
+# tf.disable_v2_behavior()
+# import tensorflow.python.keras as keras
+# import tensorflow.python.keras.backend as K
+# import tensorflow.python.keras.layers as KL
+# import tensorflow.python.keras.engine as KE
+# import tensorflow.python.keras.models as KM
+
 import keras
 import keras.backend as K
 import keras.layers as KL
