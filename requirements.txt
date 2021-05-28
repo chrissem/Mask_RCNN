@@ -6,7 +6,7 @@ Pillow
 cython
 matplotlib
 scikit-image
-tensorflow==1.15
+tensorflow-gpu==1.15
 keras==2.1.6
 opencv-python
 h5py
