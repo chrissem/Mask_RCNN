@@ -11,7 +11,6 @@ tensorflow-estimator==1.15.1
 keras==2.1.6
 h5py==2.10.0
 opencv-python
-h5py
 imgaug
 IPython[all]
 pycocotools
