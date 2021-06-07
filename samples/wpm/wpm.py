@@ -87,8 +87,8 @@ class WpmConfig(Config):
     # Number of classes (including background)
     NUM_CLASSES = 1 + 2  # Background + Cell + Nucleus
 
-    STEPS_PER_EPOCH = 239 // IMAGES_PER_GPU
-    VALIDATION_STEPS = 51 // IMAGES_PER_GPU
+    STEPS_PER_EPOCH = 333 // IMAGES_PER_GPU * 5
+    VALIDATION_STEPS = 3 // IMAGES_PER_GPU
 
     BACKBONE = "resnet101"
     USE_MINI_MASK = True
@@ -109,10 +109,10 @@ class WpmConfig(Config):
     TRAIN_ROIS_PER_IMAGE = 128
 
     # Maximum number of ground truth instances to use in one image
-    MAX_GT_INSTANCES = 64
+    MAX_GT_INSTANCES = 128 
 
     # Max number of final detections per image
-    DETECTION_MAX_INSTANCES = 64
+    DETECTION_MAX_INSTANCES = 128 
 
 
 
@@ -436,14 +436,12 @@ def train(model, dataset_dir, subset):
 
     # Image augmentation
     # http://imgaug.readthedocs.io/en/latest/source/augmenters.html
-    augmentation = iaa.SomeOf((0, 2), [
+    augmentation = iaa.SomeOf((2, 3), [
         iaa.Fliplr(0.5),
         iaa.Flipud(0.5),
         iaa.OneOf([iaa.Affine(rotate=90),
                    iaa.Affine(rotate=180),
-                   iaa.Affine(rotate=270)]),
-        iaa.Multiply((0.8, 1.5)),
-        iaa.GaussianBlur(sigma=(0.0, 5.0))
+                   iaa.Affine(rotate=270)])
     ])
 
     # *** This training schedule is an example. Update to your needs ***
@@ -460,7 +458,7 @@ def train(model, dataset_dir, subset):
     print("Train all layers")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=40,
+                epochs=100,
                 augmentation=augmentation,
                 layers='all')
 
@@ -580,7 +578,7 @@ if __name__ == '__main__':
         print("Train all layers")
         model.train(dataset_train, dataset_val,
                     learning_rate=config.LEARNING_RATE,
-                    epochs=80,
+                    epochs=100,
                     augmentation=augmentation,
                     layers='all')
 
