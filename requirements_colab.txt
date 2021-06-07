@@ -1,1 +1,2 @@
 h5py==2.10.0
+tensorflow-estimator==1.15.1
